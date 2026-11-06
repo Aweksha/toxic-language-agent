@@ -61,6 +61,16 @@
     .sev-high { color: var(--high); background: var(--high-bg); }
     .error { color: var(--high); }
     .emoji { font-size: 1.5rem; }
+    .suggest {
+      margin-top: 12px; padding: 12px; border-radius: 8px;
+      background: var(--ok-bg); border-left: 3px solid var(--ok);
+    }
+    .suggest-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .suggest-text { margin: 6px 0 0; }
+    button.copy {
+      padding: 4px 12px; font-size: .85rem; font-weight: 600;
+      background: transparent; color: var(--ok); border: 1px solid var(--ok);
+    }
     .meaning {
       margin: 12px 0 0; padding: 10px 12px; border-radius: 8px;
       background: var(--low-bg); border-left: 3px solid var(--low);
@@ -162,7 +172,27 @@
         ${tags ? `<div class="tags">${tags}</div>` : ""}
         <p class="explain">${escapeHtml(r.explanation)}</p>
         ${r.real_meaning ? `<p class="meaning"><strong>What they really mean:</strong> “${escapeHtml(r.real_meaning)}”</p>` : ""}
+        ${r.suggestion ? `
+          <div class="suggest">
+            <div class="suggest-head">
+              <strong>${r.label === "spicy_compliment" ? "🧼 Work-safe version" : "💬 Say this instead"}</strong>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <p class="suggest-text">${escapeHtml(r.suggestion)}</p>
+          </div>` : ""}
       `;
+      const copyBtn = resultEl.querySelector(".copy");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(r.suggestion);
+            copyBtn.textContent = "Copied!";
+          } catch {
+            copyBtn.textContent = "Copy failed";
+          }
+          setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+        });
+      }
     }
   </script>
 </body>

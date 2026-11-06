@@ -70,8 +70,22 @@ Return ONLY a JSON object:
   "explanation": one short sentence explaining the verdict,
   "real_meaning": for backhanded_compliment, a short, witty plain-language
                   translation of the hidden dig (what the speaker really means);
-                  otherwise ""
+                  otherwise "",
+  "suggestion": a better way to say it (see rules below), or ""
 }
+
+Rules for "suggestion":
+- toxic or backhanded_compliment: rewrite the WHOLE message so it keeps the speaker's
+  real underlying point (e.g. a work complaint stays a work complaint) but is respectful,
+  specific and constructive. Keep any already-kind parts. Sound like a real person,
+  not a corporate memo. No insults, slurs, threats or hidden digs.
+  For threats or hate, express the underlying feeling calmly instead (e.g. "I'm really
+  upset about what happened and need some space").
+- spicy_compliment: the same compliment with the swearing removed, keeping the energy.
+- compliment or neutral: "".
+- For toxic, backhanded_compliment and spicy_compliment the suggestion is REQUIRED and must
+  never be empty, even for pure insults with no clear point. Example:
+  "Shut up, you worthless idiot." -> "Can we pause? I'm really frustrated with you right now."
 
 Examples of real_meaning:
 - "You're pretty smart for a girl." -> "I assumed women aren't smart, and you surprised me."
@@ -104,6 +118,8 @@ def _normalize(result: dict) -> dict:
         "categories": categories,
         "explanation": str(result.get("explanation", "")),
         "real_meaning": str(result.get("real_meaning") or "") if label == "backhanded_compliment" else "",
+        "suggestion": str(result.get("suggestion") or "")
+        if label in ("toxic", "backhanded_compliment", "spicy_compliment") else "",
     }
 
 
