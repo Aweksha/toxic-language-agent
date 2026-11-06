@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Toxic Language Detector</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌶️</text></svg>" />
   <style>
     :root {
       --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #6b7280;
@@ -117,10 +118,19 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Request failed");
+        let data = null;
+        try { data = await res.json(); } catch { /* not JSON, e.g. a 404 page */ }
+        if (!res.ok || !data) {
+          throw new Error((data && data.detail) ||
+            (res.status === 404 ? "The analysis server couldn't be found. It may not be set up yet."
+                                : `The analysis server returned an error (${res.status}). Please try again.`));
+        }
         render(data);
       } catch (err) {
+        if (err instanceof TypeError) {
+          // Network failure: server asleep, offline, or blocked by CORS.
+          err = new Error("Couldn't reach the analysis server. If it was asleep, wait about 30 seconds and try again.");
+        }
         resultEl.style.display = "block";
         resultEl.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
       } finally {
