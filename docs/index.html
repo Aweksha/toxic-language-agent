@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toxic Language Detector</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #6b7280;
+      --border: #dfe3ea; --accent: #4f46e5;
+      --ok: #15803d; --ok-bg: #e9f7ee;
+      --low: #a16207; --low-bg: #fdf6e3;
+      --med: #c2410c; --med-bg: #fdeee5;
+      --high: #b91c1c; --high-bg: #fdecec;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151b; --card: #1b1f27; --text: #e7e9ee; --muted: #9aa2b1;
+        --border: #2c323d; --accent: #8b85ff;
+        --ok: #4ade80; --ok-bg: #163222;
+        --low: #facc15; --low-bg: #332b12;
+        --med: #fb923c; --med-bg: #3a2416;
+        --high: #f87171; --high-bg: #3b1a1a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 680px; margin: 0 auto; padding: 48px 16px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; }
+    p.sub { color: var(--muted); margin: 0 0 24px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px;
+    }
+    textarea {
+      width: 100%; min-height: 160px; resize: vertical; padding: 12px;
+      font: inherit; color: var(--text); background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+    }
+    textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 12px; }
+    .count { color: var(--muted); font-size: .875rem; }
+    button {
+      background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+      padding: 10px 20px; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    #result { margin-top: 20px; display: none; }
+    .verdict { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+    .badge { padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; text-transform: uppercase; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+    .tag { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: .85rem; }
+    .explain { color: var(--muted); margin: 0; }
+    .sev-none { color: var(--ok); background: var(--ok-bg); }
+    .sev-low { color: var(--low); background: var(--low-bg); }
+    .sev-medium { color: var(--med); background: var(--med-bg); }
+    .sev-high { color: var(--high); background: var(--high-bg); }
+    .error { color: var(--high); }
+    .emoji { font-size: 1.5rem; }
+    .meaning {
+      margin: 12px 0 0; padding: 10px 12px; border-radius: 8px;
+      background: var(--low-bg); border-left: 3px solid var(--low);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Toxic Language Detector</h1>
+    <p class="sub">Paste a message to find out if it's a compliment, a spicy compliment, a backhanded one, or plain toxic.</p>
+
+    <div class="card">
+      <textarea id="text" maxlength="5000" placeholder="Type or paste text here…"></textarea>
+      <div class="row">
+        <span class="count" id="count">0 / 5000</span>
+        <button id="analyze">Analyze</button>
+      </div>
+    </div>
+
+    <div class="card" id="result" aria-live="polite"></div>
+  </main>
+
+  <script>
+    // Where the Python API lives. Locally the same server serves the page, so "" works.
+    // After deploying the API (e.g. on Render), put its URL here.
+    const API_BASE = ["localhost", "127.0.0.1"].includes(location.hostname)
+      ? ""
+      : "https://YOUR-API-NAME.onrender.com";
+
+    const textEl = document.getElementById("text");
+    const btn = document.getElementById("analyze");
+    const countEl = document.getElementById("count");
+    const resultEl = document.getElementById("result");
+
+    textEl.addEventListener("input", () => {
+      countEl.textContent = `${textEl.value.length} / 5000`;
+    });
+    textEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) analyze();
+    });
+    btn.addEventListener("click", analyze);
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function analyze() {
+      const text = textEl.value.trim();
+      if (!text) return;
+      btn.disabled = true;
+      btn.textContent = "Analyzing…";
+      try {
+        const res = await fetch(`${API_BASE}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Request failed");
+        render(data);
+      } catch (err) {
+        resultEl.style.display = "block";
+        resultEl.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Analyze";
+      }
+    }
+
+    const LABELS = {
+      compliment:            { emoji: "💖", name: "Compliment" },
+      spicy_compliment:      { emoji: "🌶️", name: "Spicy compliment" },
+      backhanded_compliment: { emoji: "🙃", name: "Backhanded compliment" },
+      neutral:               { emoji: "😐", name: "Neutral" },
+      toxic:                 { emoji: "☠️", name: "Toxic" },
+    };
+
+    function render(r) {
+      const sev = ["none", "low", "medium", "high"].includes(r.severity) ? r.severity : "none";
+      const label = LABELS[r.label] || LABELS.neutral;
+      const tags = (r.categories || [])
+        .map(c => `<span class="tag">${escapeHtml(c.replace(/_/g, " "))}</span>`).join("");
+      resultEl.style.display = "block";
+      resultEl.innerHTML = `
+        <div class="verdict">
+          <span class="emoji">${label.emoji}</span>
+          ${label.name}
+          ${sev !== "none" ? `<span class="badge sev-${sev}">${sev} harm</span>` : ""}
+        </div>
+        ${tags ? `<div class="tags">${tags}</div>` : ""}
+        <p class="explain">${escapeHtml(r.explanation)}</p>
+        ${r.real_meaning ? `<p class="meaning"><strong>What they really mean:</strong> “${escapeHtml(r.real_meaning)}”</p>` : ""}
+      `;
+    }
+  </script>
+</body>
+</html>
