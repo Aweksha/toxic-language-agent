@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: toxic-language-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false   # Render asks you to paste it during setup; never stored in the repo
+      - key: ALLOWED_ORIGINS
+        value: https://aweksha.github.io
+      - key: PYTHON_VERSION
+        value: 3.12.7
